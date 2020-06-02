@@ -21,3 +21,4 @@ Route::post('image/upload', 'ImageController@upload');
 Route::get('/mail', 'ImageController@mail');
 Route::post('/posts', 'ImageController@store');
 Route::post('abc', 'ImageController@abc');
+Route::post('abdfdsfc', 'ImageController@abfdsfc');
