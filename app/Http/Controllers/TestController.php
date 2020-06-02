@@ -102,4 +102,7 @@ class TestController extends Controller
     public function test_queue(){
         return view('test.test');
     }
+    public function git_Test(){
+        return 11;
+    }
 }
