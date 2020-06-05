@@ -105,4 +105,14 @@ class TestController extends Controller
     public function git_Test(){
         return 11;
     }
+    public function uploadfiles(){
+        $file_names = $_FILES["file"]["name"];
+        for ($i = 0; $i < count($file_names); $i++) {
+           $file_name=$file_names[$i];
+           $extension = end(explode(".", $file_name));
+           $original_file_name = pathinfo($file_name, PATHINFO_FILENAME);
+           $file_url = $original_file_name . "-" . date("YmdHis") . "." . $extension;
+         move_uploaded_file($_FILES["file"]["tmp_name"][$i], $absolute_destination . $file_url);
+        }
+    }
 }
