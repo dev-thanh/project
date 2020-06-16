@@ -210,11 +210,7 @@ $.fn.plugin = function() {
           status = 1;
           $(this).find('.status_value').val('1');
           if($('#active_reviews').is(':checked')){
-<<<<<<< HEAD
             page = $(".button-ajax").find('.active').text();
-=======
-            page = $(".pagination").find('.active').data('page');
->>>>>>> thanh_branch
             if(page==''){
               page=1;
             }
@@ -227,11 +223,7 @@ $.fn.plugin = function() {
           status = 0;
           $(this).find('.status_value').val('0');         
           if($('#pending_reviews').is(':checked')){
-<<<<<<< HEAD
             page = $(".button-ajax").find('.active').text();
-=======
-            page = $(".pagination").find('.active').data('page');
->>>>>>> thanh_branch
             if(page==''){
               page=1;
             }
@@ -260,7 +252,6 @@ $.fn.plugin = function() {
               return;
             }
             $('#ajax_load_reviews').html(data.response);
-<<<<<<< HEAD
             ndn_default();
             ajax_load_more();
             if(page!=''){                           
@@ -281,9 +272,6 @@ $.fn.plugin = function() {
                 }
               }             
             }
-=======
-            pagination_show(data.total,page);
->>>>>>> thanh_branch
           }
         });
       });
@@ -418,25 +406,25 @@ $.fn.plugin = function() {
     }
   }
   ndn_default();
-    // $('#publish_to_shop').on('click', function(event) {
-    //   event.preventDefault();
-    //   $.ajax({
-    //           url: './publish-toshop',
-    //           type: "GET",
-    //           cache: false,
-    //           beforeSend: function() {
-    //             $(".ndn-loading").show();
-    //           },
-    //           success: function(dataResult){
-    //               if(dataResult==1){
-    //                 $(".ndn-loading").hide();
-    //                 $('#success_message').text('Save successfully');
-    //                 $('#success_message').fadeIn();
-    //                 $('#success_message').delay(1200).fadeOut();
-    //               }
-    //           }
-    //       });
-    // });
+    $('#publish_to_shop').on('click', function(event) {
+      event.preventDefault();
+      $.ajax({
+              url: './publish-toshop',
+              type: "GET",
+              cache: false,
+              beforeSend: function() {
+                $(".ndn-loading").show();
+              },
+              success: function(dataResult){
+                  if(dataResult==1){
+                    $(".ndn-loading").hide();
+                    $('#success_message').text('Save successfully');
+                    $('#success_message').fadeIn();
+                    $('#success_message').delay(1200).fadeOut();
+                  }
+              }
+          });
+    });
 
     /*  click checkbox allreview,pendingreview  */
     
@@ -454,12 +442,14 @@ $.fn.plugin = function() {
         $('#select_all').prop('checked',true);
       }
     }
-
-    load_page_respon=function(currentPage){
-      $('.pagination').css('opacity','0');
-      var url = public_path+'/filter-ajax?page='+currentPage;
-      var formData = $('#header-search').serialize();
-      $.ajax({
+    ajax_load_more=function(){     
+        $( "body" ).on( "click", ".button-ajax", function() {
+        $('.div-button-ajax').css('opacity','0');
+        $('.div-button-ajax .active').removeClass('active');
+        $(this).find('a').addClass('active');
+        var url = $(this).data('url');
+        var formData = $('#header-search').serialize();
+        $.ajax({
             url: url,
             type: "GET",
             cache: false,
@@ -472,155 +462,49 @@ $.fn.plugin = function() {
             success: function(dataResult){
               if(dataResult.total){
                 $('#ajax_load_reviews').html(dataResult.response);
+                ndn_default();
               }else{
                 $('#ajax_load_reviews').html(dataResult);
+                  ndn_default();
               }
-              $('.pagination').css('opacity','1');
-<<<<<<< HEAD
-              // ndn_default();
-              // edit_customer_event();
-              // checked_rows();
-=======
-              ndn_default();
+              $('.div-button-ajax').css('opacity','1');
               edit_customer_event();
               checked_rows();
->>>>>>> thanh_branch
             }
         });
-    }
-    ajax_load_more=function(){     
-      $( "body" ).on( "click", ".current-page:not('.active')", function() {
-        $(this).find('a').addClass('active');
-        var currentPage = $(this).data('page');
-        load_page_respon(currentPage);
       });
     }
     ajax_load_more();
     var typingTimer;
     var doneTypingInterval = 800;
 
-    function getPageList(totalPages, page, maxLength) {
-        if (maxLength < 5) throw "maxLength must be at least 5";
-
-        function range(start, end) {
-            return Array.from(Array(end - start + 1), (_, i) => i + start); 
+    pagination_response=function(data){
+      $('#ajax_load_reviews').html(data.response);
+      var button ='';  
+      for (var i = 1; i <= data.total; i++) {
+        if(i==1){
+          var active = 'active';
+        }else{
+          var active = ''
         }
-
-        var sideWidth = maxLength < 9 ? 1 : 2;
-        var leftWidth = (maxLength - sideWidth*2 - 3) >> 1;
-        var rightWidth = (maxLength - sideWidth*2 - 2) >> 1;
-        if (totalPages <= maxLength) {
-            // no breaks in list
-            return range(1, totalPages);
-        }
-        if (page <= maxLength - sideWidth - 1 - rightWidth) {
-            // no break on left of page
-            return range(1, maxLength - sideWidth - 1)
-                .concat(0, range(totalPages - sideWidth + 1, totalPages));
-        }
-        if (page >= totalPages - sideWidth - 1 - rightWidth) {
-            // no break on right of page
-            return range(1, sideWidth)
-                .concat(0, range(totalPages - sideWidth - 1 - rightWidth - leftWidth, totalPages));
-        }
-        // Breaks on both sides
-        return range(1, sideWidth)
-            .concat(0, range(page - leftWidth, page + rightWidth),
-                    0, range(totalPages - sideWidth + 1, totalPages));
+        button+= '<li class="button-ajax" data-url="'+public_path+'/filter-ajax?page='+i+'" type="button"><a class="'+active+'">'+i+'</a></li>';                
+      }
+      if(data.total > 1){            
+        $('.div-button-ajax').html(button);
+      }else{
+        $('.div-button-ajax').html('');
+      }
+      ajax_load_more();
+      ndn_default();
+      checked_rows();
     }
 
-    // Below is an example use of the above function.
-<<<<<<< HEAD
-    pagination_show = function(data) {
-        var totalPages = data;
-        var paginationSize = 6; 
-        var currentPage;
-
-=======
-    pagination_show = function(data,res) {
-        var totalPages = data;
-        var paginationSize = 6; 
-        var currentPage;
-        ndn_default();
-        edit_customer_event();
-        checked_rows();
->>>>>>> thanh_branch
-        function showPage(whichPage) {
-            if (whichPage < 1 || whichPage > totalPages) return false;
-            currentPage = whichPage;
-            // $("#jar .content").hide()
-            //     .slice((currentPage-1) * limitPerPage, 
-            //             currentPage * limitPerPage).show();
-            // Replace the navigation items (not prev/next):            
-            $(".pagination li").slice(1, -1).remove();
-            getPageList(totalPages, currentPage, paginationSize).forEach( item => {
-                $("<li>").addClass("page-item")
-                         .addClass(item ? "current-page" : "disabled").attr({
-                        'data-page': item})
-                         .toggleClass("active", item === currentPage).append(
-                    $("<a>").addClass("page-link").attr({
-                        href: "javascript:void(0)"}).text(item || "...")
-                ).insertBefore("#next-page");
-            });
-            // Disable prev/next when at first/last page:
-            $("#previous-page").toggleClass("disabled", currentPage === 1);
-            $("#next-page").toggleClass("disabled", currentPage === totalPages);
-            return true;
-        }
-
-        // Include the prev/next buttons:
-        $(".pagination").append(
-            $("<li>").addClass("page-item").attr({ id: "previous-page"}).append(
-                $("<a>").addClass("page-link").attr({
-                    href: "javascript:void(0)"}).text("Prev")
-            ),
-            $("<li>").addClass("page-item").attr({ id: "next-page" }).append(
-                $("<a>").addClass("page-link").attr({
-                    href: "javascript:void(0)"}).text("Next")
-            )
-        );
-<<<<<<< HEAD
-        // Show the page links
-        $("#jar").show();
-        showPage(1);
-=======
-        if(!res){          
-          showPage(1);
-        }else{
-          showPage(res);
-        }
->>>>>>> thanh_branch
-        $('.pagination').css('opacity','1');
-        // Use event delegation, as these items are recreated later    
-        $(document).on("click", ".pagination li.current-page:not(.active)", function () {
-            return showPage(+$(this).text());
-        });
-
-        $("body").on("click",'#previous-page:not(".disabled")', function () {
-          load_page_respon(currentPage-1);
-            return showPage(currentPage-1);
-        });
-        $("body").on("click",'#next-page:not(".disabled")', function () {
-          load_page_respon(currentPage+1);
-          return showPage(currentPage+1);
-        });
-<<<<<<< HEAD
-        ndn_default();
-        edit_customer_event();
-        checked_rows();
-=======
-        // ndn_default();
-        // edit_customer_event();
-        // checked_rows();
->>>>>>> thanh_branch
-    };
-    
     $('#ndn_filter_ajax').keyup(function(){
       clearTimeout(typingTimer);
       if ($('#ndn_filter_ajax').val) {
           typingTimer = setTimeout(function(){
           var search = $("#ndn_filter_ajax").val();
-          $('.pagination').css('opacity','0');
+          $('.div-button-ajax').html('');
           var formData = $('#header-search').serialize();
           $.ajax({
               type: 'GET',
@@ -632,13 +516,7 @@ $.fn.plugin = function() {
                 $('#ajax_load_reviews').html('<div class="ndn-status-photo" id="loading-status" style="position: absolute;left: 50%;top: 50%;margin-top: -12px;width: 24px;height: 24px;text-align: center;margin-left: -12px;"><img style="width: 100%;height: 100%;" src="https://d18iq1cg8kg4gf.cloudfront.net/images/icons/loader-white1.gif" alt=""></div>');
               },
               success:function(data){
-                $('#ajax_load_reviews').html(data.response);
-                if(data.count_reviews=='0'){
-                  $('.pagination-round').css('display','none');
-                }else{
-                  $('.pagination-round').css('display','block');
-                }
-                pagination_show(data.total);
+                pagination_response(data);
               }
           });
         }, doneTypingInterval);
@@ -655,11 +533,7 @@ $.fn.plugin = function() {
   });
   var page = '';
   $('#delete_customer_success').on('click',function(event){
-<<<<<<< HEAD
     page = $(".button-ajax").find('.active').text();
-=======
-    page = $(".pagination").find('.active').data('page');
->>>>>>> thanh_branch
     var id=$('#delete_customer_id').val();
     if(page==''){
       page=1;
@@ -682,18 +556,8 @@ $.fn.plugin = function() {
         $('#modal_delete_customer').find('#loading-status').remove();
         $('#modal_delete_customer').find('.btn-danger').css({'pointer-events':'unset','opacity':'unset'});
         $( "#ajax_load_reviews").css('pointer-events','');
-        if(page!=''){
-          $('#ajax_load_reviews').html(data.response);
-          if(data.count_reviews=='0'){
-            $('.pagination-round').css('display','none');
-          }else{
-            $('.pagination-round').css('display','block');
-          }            
-<<<<<<< HEAD
-          pagination_show(data.total);        
-=======
-          pagination_show(data.total,page);        
->>>>>>> thanh_branch
+        if(page!=''){              
+          pagination_response(data);          
           $('#modal_delete_customer').modal('hide');
           $('#success_message').text('Delete successfully');
           $('#success_message').fadeIn();
@@ -707,7 +571,7 @@ $.fn.plugin = function() {
     $('.checkbox-1 input').removeAttr('checked');
     $(this).attr('checked','checked');
     $(this).prop( "checked", true );
-    $('.pagination').css('opacity','0');
+    $('.div-button-ajax').html('');
     var formData = $('#header-search').serialize();
     $.ajax({
       type: 'GET',
@@ -719,13 +583,7 @@ $.fn.plugin = function() {
         $('#ajax_load_reviews').html('<div class="ndn-status-photo" id="loading-status" style="position: absolute;left: 50%;top: 50%;margin-top: -12px;width: 24px;height: 24px;text-align: center;margin-left: -12px;"><img style="width: 100%;height: 100%;" src="https://d18iq1cg8kg4gf.cloudfront.net/images/icons/loader-white1.gif" alt=""></div>');
       },
       success:function(data){
-        $('#ajax_load_reviews').html(data.response);
-        if(data.count_reviews=='0'){
-          $('.pagination-round').css('display','none');
-        }else{
-          $('.pagination-round').css('display','block');
-        }
-        pagination_show(data.total);
+        pagination_response(data);
       }
     });
   });
@@ -855,17 +713,7 @@ $.fn.plugin = function() {
       $('#select_all').prop('checked',false);
       array_select_rows=[];
       array_keyid_rows=[];
-      $('#ajax_load_reviews').html(data.response);
-      if(data.count_reviews=='0'){
-        $('.pagination-round').css('display','none');
-      }else{
-        $('.pagination-round').css('display','block');
-      }
-<<<<<<< HEAD
-      pagination_show(data.total);
-=======
-      pagination_show(data.total,1);
->>>>>>> thanh_branch
+      pagination_response(data);
     }
     });
   });
@@ -890,7 +738,7 @@ $.fn.plugin = function() {
     var title = $('#product_name_select').val();
     $('.product-select-name').css('opacity','1');
     $('.product-select-name').html(title+'<i class="fa fa-remove"></i><br>');
-    $('.pagination').html('opacity','0');
+    $('.div-button-ajax').html('');
     var formData = $('#header-search').serialize();
     $.ajax({
       type: 'GET',
@@ -902,13 +750,7 @@ $.fn.plugin = function() {
         $('#ajax_load_reviews').html('<div class="ndn-status-photo" id="loading-status" style="position: absolute;left: 50%;top: 50%;margin-top: -12px;width: 24px;height: 24px;text-align: center;margin-left: -12px;"><img style="width: 100%;height: 100%;" src="https://d18iq1cg8kg4gf.cloudfront.net/images/icons/loader-white1.gif" alt=""></div>');
       },
       success:function(data){
-        $('#ajax_load_reviews').html(data.response);
-        if(data.count_reviews=='0'){
-          $('.pagination-round').css('display','none');
-        }else{
-          $('.pagination-round').css('display','block');
-        }
-        pagination_show(data.total);
+        pagination_response(data);
       }
     });
   });
@@ -916,7 +758,7 @@ $.fn.plugin = function() {
     $('.product-select-name').css('opacity','0');
     $('.product-select-name').html('');
     $('#product_id_select').val('');
-    $('.pagination').css('opacity','0');
+    $('.div-button-ajax').html('');
     $('[data-toggle="tooltip"]').tooltip("hide");
     var formData = $('#header-search').serialize();
     $.ajax({
@@ -929,18 +771,11 @@ $.fn.plugin = function() {
         $('#ajax_load_reviews').html('<div class="ndn-status-photo" id="loading-status" style="position: absolute;left: 50%;top: 50%;margin-top: -12px;width: 24px;height: 24px;text-align: center;margin-left: -12px;"><img style="width: 100%;height: 100%;" src="https://d18iq1cg8kg4gf.cloudfront.net/images/icons/loader-white1.gif" alt=""></div>');
       },
       success:function(data){
-        $('#ajax_load_reviews').html(data.response);
-        if(data.count_reviews=='0'){
-          $('.pagination-round').css('display','none');
-        }else{
-          $('.pagination-round').css('display','block');
-        }
-        pagination_show(data.total);
+        pagination_response(data);
       }
     });
   });
   $('.ndn-select-rating').on('change', function () {
-    $('.pagination').css('opacity','0');
     // var selectVal = $(".ndn-select-rating option:selected").val();
     $('.div-button-ajax').html('');
     var formData = $('#header-search').serialize();
@@ -954,14 +789,7 @@ $.fn.plugin = function() {
         $('#ajax_load_reviews').html('<div class="ndn-status-photo" id="loading-status" style="position: absolute;left: 50%;top: 50%;margin-top: -12px;width: 24px;height: 24px;text-align: center;margin-left: -12px;"><img style="width: 100%;height: 100%;" src="https://d18iq1cg8kg4gf.cloudfront.net/images/icons/loader-white1.gif" alt=""></div>');
       },
       success:function(data){
-        $('#ajax_load_reviews').html(data.response);
-        if(data.count_reviews=='0'){
-          $('.pagination-round').css('display','none');
-        }else{
-          $('.pagination-round').css('display','block');
-        }
-        pagination_show(data.total);
-        $('.pagination').css('opacity','1');
+        pagination_response(data);
       }
     });
   });
