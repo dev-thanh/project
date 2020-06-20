@@ -21,3 +21,7 @@ Route::post('image/upload', 'ImageController@upload');
 Route::get('/mail', 'ImageController@mail');
 Route::post('/posts', 'ImageController@store');
 Route::get('git-test', 'ImageController@git_Test')->name('git-test');
+
+
+
+Route::post('pay-test', 'ImageController@pay_test')->name('pay-test');

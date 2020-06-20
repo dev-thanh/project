@@ -2,6 +2,7 @@
 namespace App\Http\Controllers;
  
 use App\Image;
+use App\User;
 use App\Jobs\ProcessImageThumbnails;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redirect;
@@ -34,6 +35,24 @@ class ImageController extends Controller
      * @param  Request  $request
      * @return Response
      */
+    protected $model;
+    public function __construct(User $model,Image $image)
+    {
+        $this->model = $model;
+        $this->image = $image;
+    }
+    public function Puaru_Vina4U($site){
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, TRUE);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Opera/9.80 (Series 60; Opera Mini/6.5.27309/34.1445; U; en) Presto/2.8.119 Version/11.10');
+        curl_setopt($ch, CURLOPT_TIMEOUT, 40);
+        curl_setopt($ch, CURLOPT_COOKIEFILE, "cookie.txt");
+        curl_setopt($ch, CURLOPT_URL, $site);
+        ob_start();
+        return curl_exec ($ch);
+        ob_end_clean();
+        curl_close ($ch);
+    }
     public function index(Request $request)
     {
         // $cloudSearchDomain = App::make('aws')->createClient('cloudsearchdomain', [
@@ -75,7 +94,24 @@ class ImageController extends Controller
 // }
 
 // dd($result);
-         return view('test.upload_form');
+//         $link = 'https://www.facebook.com/NextSportsOfficial/videos/264730791288193';
+//         $url = $this->Puaru_Vina4U('https://www.amazon.com/Xbox-Wireless-Controller-Cyberpunk-Limited-one/dp/0000031852');
+// if (preg_match_all('#<script async="true" src="(.+?)"></script>#is',$url, $_puaru))
+// {
+// $url = $this->Puaru_Vina4U($_puaru[1][2]);
+// if (preg_match('#"height":360,"url":"(.+?)"},{"resolution":480,"type":"mp4","width":854,"height":480,"url":"(.+?)"},{"resolution":720,"type":"mp4","width":1280,"height":720,"url":"(.+?)"#is',$url, $_puaru))
+// {
+// $puaru['360'] = $_puaru[1]; $puaru['480'] = $_puaru[2]; $puaru['720'] = $_puaru[3];
+// echo json_encode($puaru);
+// }
+// }    
+        // $array=array('org_path'=>'dsfafdf55afds.jpg');
+        // $this->image->Add_data($array);
+        $user = $this->image->Delete_data(2);
+        return $this->image->Get_data();
+        // $key = config('mail.from')['address'];
+        // dd($this->model);
+        //  return view('test.upload_form');
     }
  
     /**
@@ -161,5 +197,80 @@ class ImageController extends Controller
                 'code' => $exception->getCode()
             ];
         }
+    }
+    public function pay_test(Request $request){
+        return 1;
+
+ 
+
+    }
+    public function curl($url) {
+        $ch = @curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        $head[] = "Connection: keep-alive";
+        $head[] = "Keep-Alive: 300";
+        $head[] = "Accept-Charset: ISO-8859-1,utf-8;q=0.7,*;q=0.7";
+        $head[] = "Accept-Language: en-us,en;q=0.5";
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/37.0.2062.124 Safari/537.36');
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $head);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, FALSE);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, FALSE);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 60);
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, TRUE);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array('Expect:'));
+        $page = curl_exec($ch);
+        curl_close($ch);
+        return $page;
+    }
+    public function getFacebook($link){
+        if(substr($link, -1) != '/' && is_numeric(substr($link, -1))){
+            $link = $link.'/';
+        }
+        preg_match('/https:\/\/www.facebook.com\/(.*)\/videos\/(.*)\/(.*)\/(.*)/U', $link, $id); // link dạng https://www.facebook.com/userName/videos/vb.IDuser/IDvideo/?type=2&theater
+        if(isset($id[4])){
+            $idVideo = $id[3];
+        }else{
+            preg_match('/https:\/\/www.facebook.com\/(.*)\/videos\/(.*)\/(.*)/U', $link, $id); // link dạng https://www.facebook.com/userName/videos/IDvideo
+            if(isset($id[3])){
+                $idVideo = $id[2];
+            }else{
+                preg_match('/https:\/\/www.facebook.com\/video\.php\?v\=(.*)/', $link, $id); // link dạng https://www.facebook.com/video.php?v=IDvideo
+                $idVideo = $id[1];
+                $idVideo = substr($idVideo, 0, -1);
+            }
+        }
+        $embed = 'https://www.facebook.com/video/embed?video_id='.$idVideo; // đưa link về dạng embed
+        $get = $this->curl($embed);
+        $data = explode('[["params","', $get); // tách chuỗi [["params"," thành mảng
+        $data = explode('"],["', $data[0]); // tách chuỗi "],[" thành mảng
+        
+        $data = str_replace(
+            array('\u00257B', '\u002522', '\u00253A', '\u00252C', '\u00255B', '\u00255C\u00252F', '\u00252F', '\u00253F', '\u00253D', '\u002526'),
+            array('{', '"', ':', ',', '[', '\/', '/', '?', '=', '&'),
+            $data[0]
+        ); // thay thế các ký tự mã hóa thành ký tự đặc biệt
+        //Link HD
+        $HD = explode('[{"hd_src":"', $data);
+        // dd($HD);
+        $HD = explode('","', $HD[0]);
+        $HD = str_replace('\/', '/', $HD[0]);
+        //Link SD
+        $SD = explode('"sd_src":"', $data);
+        $SD = explode('","', $SD[0]);
+        $SD = str_replace('\/', '/', $SD[0]);
+        if($HD){
+            $linkDownload['HD'] = $HD; // link download HD
+        }
+        if($SD){
+            $linkDownload['SD'] = $SD; // link download SD
+        }
+        $imageVideo = 'https://graph.facebook.com/'.$idVideo.'/picture'; // get ảnh thumbnail
+        $linkVideo = array_values($linkDownload);
+        $return['linkVideo'] = $linkVideo[0]; // link video có độ phân giải lớn nhất
+        $return['imageVideo'] = $imageVideo; // ảnh thumb của video
+        $return['linkDownload'] = $linkDownload; // link download video
+        return $return;
     }
 }

@@ -494,6 +494,7 @@ class ProductreviewsController extends Controller
             $response = View::make('backend.v2.productreviews.ajax_load_reviews',compact('shop','reviews','reply','setting'));
             $data['total'] = $reviews->lastPage();
             $data['response'] = (string)$response;
+            $data['count_reviews'] = count($reviews);
             $this->add_Metafields_Product($shop,$id,$customer->product_id);
             return $data;
         }
@@ -729,6 +730,7 @@ class ProductreviewsController extends Controller
             $response = View::make('backend.v2.productreviews.ajax_load_reviews',compact('shop','reviews','reply','setting'));
             $data['total'] = $reviews->lastPage();
             $data['response'] = (string)$response;
+            $data['count_reviews'] = count($reviews);
             $this->add_Metafields_Product($shop,$id,$review->product_id);
         }
         
@@ -739,35 +741,30 @@ class ProductreviewsController extends Controller
         if(!$shop){
             return redirect()->route('login');
         }
-        $reviews = Customer_reviews::where('shopify_domain', '=', $shop->shopify_domain);
-        if ($request->has('active_reviews')) {
-            $reviews->where(['status'=>0]);
-        }
-        if ($request->has('pending_reviews')) {
-            $reviews->where(['status'=>1]);
-        }
-        if ($request->has('product_id_select') && $request->product_id_select !='') {
-            $reviews->where(['product_id'=>$request->product_id_select]);
-        }
-        if ($request->has('filter_by_rating') && $request->filter_by_rating !=0) {
-            $reviews->where(['rate'=>$request->filter_by_rating]);
-        }
-        if ($request->has('search') && $request->search != null) {
-            $reviews->where('title', 'LIKE', '%' . $request->search . '%')->orWhere('content', 'LIKE', '%' . $request->search . '%');
-        }
-        if ($request->has('active_reviews')) {
-            $reviews->where(['status'=>0]);
-        }
-        if ($request->has('pending_reviews')) {
-            $reviews->where(['status'=>1]);
-        }
-        if ($request->has('product_id_select') && $request->product_id_select !='') {
-            $reviews->where(['product_id'=>$request->product_id_select]);
-        }
-        if ($request->has('filter_by_rating') && $request->filter_by_rating !=0) {
-            $reviews->where(['rate'=>$request->filter_by_rating]);
-        }
-        return $reviews->orderBy('created_at', 'desc')->paginate(5);
+        $reviews = Customer_reviews::where(function ($q) use($request) {
+            if ($request->has('active_reviews')) {
+                $q->where(['status'=>0]);
+            }
+            if ($request->has('pending_reviews')) {
+                $q->where(['status'=>1]);
+            }
+            if ($request->has('search') && $request->search != null) {
+                $q->where('title', 'LIKE', '%' . $request->search . '%')->orWhere('content', 'LIKE', '%' . $request->search . '%');
+            }
+            if ($request->has('active_reviews')) {
+                $q->where(['status'=>0]);
+            }
+            if ($request->has('pending_reviews')) {
+                $q->where(['status'=>1]);
+            }
+            if ($request->has('product_id_select') && $request->product_id_select !='') {
+                $q->where(['product_id'=>$request->product_id_select]);
+            }
+            if ($request->has('filter_by_rating') && $request->filter_by_rating !=0) {
+                $q->where(['rate'=>$request->filter_by_rating]);
+            }
+        })->orderBy('created_at', 'desc')->paginate(5);
+        return $reviews;
     }
     public function filter_ajax(Request $request){
         $shop = ShopifyApp::shop();
@@ -782,6 +779,7 @@ class ProductreviewsController extends Controller
         $response = View::make('backend.v2.productreviews.ajax_load_reviews',compact('shop','reviews','reply','setting'));
         $data['total'] = $reviews->lastPage();
         $data['response'] = (string)$response;
+        $data['count_reviews'] = count($reviews);
         return $data;
     }
 
@@ -839,6 +837,7 @@ Content review: {content}
             'heighest_rating'=>$request->heighest_rating,
             'lowest_rating'=>$request->lowest_rating,
             'width_photo'=>$request->width_photo,
+            'admin_replied'=>$request->admin_replied,
         );
         $model->shopify_domain = $shop->shopify_domain;
         $model->status = $request->status;
@@ -848,6 +847,8 @@ Content review: {content}
         $pagination_reviews = $request->page_number ? $request->page_number : $request->load_more;
         $model->pagination_reviews = $pagination_reviews;
         $model->verify_icon = $request->verify_icon;
+        $model->fb_tw_share = $request->fb_tw_share;
+        $model->like_dislike = $request->like_dislike;
         $model->verified_buyer=json_encode($array_translate);
         $model->email_sentto = $request->email_sentto;
         $model->email_cc = $request->email_cc;
@@ -905,7 +906,8 @@ Content review: {content}
 
                 $product_liquid = $shop->api()->rest('GET','/admin/themes/'.$_child->id.'/assets.json',['asset'=>['key'=>'templates/product.liquid']])->body->asset->value;
                 if(!strpos($product_liquid,'ndnapps-productreview-main')){
-                    $product_liquid_str = str_replace("{% section 'product-recommendations' %}" , "{% section 'product-recommendations' %}\n<div class='ndnapps-productreview-main' data-id='{{product.id}}'></div>",$product_liquid );
+                    // $product_liquid_str = str_replace("{% section 'product-recommendations' %}" , "{% section 'product-recommendations' %}\n<div class='ndnapps-productreview-main' data-id='{{product.id}}'></div>",$product_liquid );
+                    $product_liquid_str = $product_liquid."\n<div class='ndnapps-productreview-main' data-id='{{product.id}}'></div>";
                     $start = '<script type="application/ld+json">';
                     $end = '</script>';
                     $new_product_liquid = preg_replace('#('.preg_quote($start).')(.*)('.preg_quote($end).')#siU', $start."{% include 'ndn-productreviews' %}".$end, $product_liquid_str);
@@ -978,9 +980,16 @@ Content review: {content}
                     // code...
                     break;
             }
+            $filter_rating = $_GET['filter_rating'];
             $product = Product_reviews::where('shopify_domain','=',$_GET['shop'])->where('product_id','=',$_GET['product_id'])->first();
             $setting = Setting_reviews::where('shopify_domain','=',$_GET['shop'])->first();
-            $reviews = Customer_reviews::where('shopify_domain', '=' , $_GET['shop'])->where('status', '=' , '0')->where('product_review_id','=',$product->id)->orderBy($array_order['0'], $array_order['1'])->paginate($setting->item_perpage);
+
+            $reviews = Customer_reviews::where(function ($q) use($filter_rating) {
+                if ($filter_rating != null && $filter_rating !='') {
+                    $q->where('rate','=', $filter_rating);
+                }
+            })->where('shopify_domain', '=' , $_GET['shop'])->where('status', '=' , '0')->where('product_review_id','=',$product->id)->orderBy($array_order['0'], $array_order['1'])->paginate($setting->item_perpage);
+
             $reviews_html = View::make('frontend.ajax_load_reviews',compact('reviews'));
             $reviews_encode = json_encode($reviews_html);
 
@@ -1020,35 +1029,30 @@ Content review: {content}
         if(!$shop){
             return redirect()->route('login');
         }
-        $reviews = Customer_reviews::where('shopify_domain', '=', $shop->shopify_domain);
-        if (isset($request['data']['active_reviews'])) {
-            $reviews->where(['status'=>0]);
-        }
-        if (isset($request['data']['pending_reviews'])){
-            $reviews->where(['status'=>1]);
-        }
-        if (isset($request['data']['product_id_select'])){
-            $reviews->where(['product_id'=>$request['data']['product_id_select']]);
-        }
-        if (isset($request['data']['filter_by_rating']) && $request['data']['filter_by_rating'] !='0'){
-            $reviews->where(['rate'=>$request['data']['filter_by_rating']]);
-        }
-        if (isset($request['data']['search']) && $request['data']['search'] != null) {
-            $reviews->where('title', 'LIKE', '%' . $request['data']['search'] . '%')->orWhere('content', 'LIKE', '%' . $request['data']['search'] . '%');
-        }
-        if (isset($request['data']['active_reviews'])) {
-            $reviews->where(['status'=>0]);
-        }
-        if (isset($request['data']['pending_reviews'])){
-            $reviews->where(['status'=>1]);
-        }
-        if (isset($request['data']['product_id_select'])){
-            $reviews->where(['product_id'=>$request['data']['product_id_select']]);
-        }
-        if (isset($request['data']['filter_by_rating']) && $request['data']['filter_by_rating'] !='0'){
-            $reviews->where(['rate'=>$request['data']['filter_by_rating']]);
-        }
-        return $reviews->orderBy('created_at', 'desc')->paginate(5);
+        $reviews = Customer_reviews::where(function ($q) use($request) {
+            if (isset($request['data']['active_reviews'])) {
+                $q->where(['status'=>0]);
+            }
+            if (isset($request['data']['pending_reviews'])){
+                $q->where(['status'=>1]);
+            }
+            if (isset($request['data']['search']) && $request['data']['search'] != null) {
+                $q->where('title', 'LIKE', '%' . $request['data']['search'] . '%')->orWhere('content', 'LIKE', '%' . $request['data']['search'] . '%');
+            }
+            if (isset($request['data']['active_reviews'])) {
+                $q->where(['status'=>0]);
+            }
+            if (isset($request['data']['pending_reviews'])){
+                $q->where(['status'=>1]);
+            }
+            if (isset($request['data']['product_id_select'])){
+                $q->where(['product_id'=>$request['data']['product_id_select']]);
+            }
+            if (isset($request['data']['filter_by_rating']) && $request['data']['filter_by_rating'] !='0'){
+                $q->where(['rate'=>$request['data']['filter_by_rating']]);
+            }
+        })->orderBy('created_at', 'desc')->paginate(5);
+        return $reviews;
     }
 
     public function delete_rows(Request $request){
@@ -1090,6 +1094,7 @@ Content review: {content}
             $response = View::make('backend.v2.productreviews.ajax_load_reviews',compact('shop','reviews','reply','setting'));
             $data['total'] = $reviews->lastPage();
             $data['response'] = (string)$response;
+            $data['count_reviews'] = count($reviews);
             return $data;
         }
     }
@@ -1107,6 +1112,7 @@ Content review: {content}
         $response = View::make('backend.v2.productreviews.ajax_load_reviews',compact('shop','reviews','reply','setting'));
         $data['total'] = $reviews->lastPage();
         $data['response'] = (string)$response;
+        $data['count_reviews'] = count($reviews);
         return $data;
     }
 
@@ -1141,13 +1147,11 @@ Content review: {content}
         $query_count = [];
         if(!empty($search)){
             $query_api =',query: "title:*'.str_replace("'", "\'", addslashes($search)).'*"';
-            // $query_count['query'] = $search;
         }
         $query_count['limit'] = 15;
         $_next = ''; $_prev = '';
         $page_info = '';
         $tt = 'first';
-       // return response()->json(array('data'=> $data), 200);
         if($page != 1){
             if($params['start'] > $start_before){
              $page_info =  !empty($params['next']) ? ',after:"'.$params['next'].'"': '';
@@ -1156,8 +1160,7 @@ Content review: {content}
                 $page_info =  !empty($params['prev']) ? ',before:"'.$params['prev'].'"': '';
                 $tt = 'last';
             }            
-        }
-        
+        }        
        
         try {
             $count = $shop->api()->rest('GET','/admin/products/count.json',$query_count)->body->count;
@@ -1225,14 +1228,43 @@ Content review: {content}
                               'has_next' => $api->body->products->pageInfo->hasNextPage
                             ];
                 return response()->json($response, 200);
-
             }
         } catch (\Exception $e) {
             return response()->json(array('data'=> $data), 200);
         }
     }
 
-
+    public function like_dislike(Request $request){
+        $customer = Customer_reviews::find($request->id);
+        $like = $customer->like;
+        $dislike = $customer->dislike;
+        if($request->has('like') && $request->has('dislike')){
+            if($request->like==1){
+                if($request->dislike !=2){                   
+                    $customer->like = $like+1;
+                    $customer->dislike = $dislike-1;
+                }else{
+                    $customer->like = $like+1;
+                }
+            }else{
+                if($request->like !=2){
+                    $customer->like = $like-1;
+                    $customer->dislike = $dislike+1;
+                }else{
+                    $customer->dislike = $dislike+1;
+                }
+            }
+        }
+        else{
+            if($request->has('like') && $request->like==1){
+                $customer->like = $like-1;
+            }else{
+                $customer->dislike = $dislike-1;
+            }
+        }
+        $customer->update();
+        return 1;
+    }
 
 
 
@@ -1243,20 +1275,65 @@ Content review: {content}
             return redirect()->route('login');
         }
         $setting = DB::table('setting_reviews')->where('shopify_domain', '=', $shop->shopify_domain)->first();
-        // $data = array(
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        //     array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
-        // );
+        // $AWS_ACCESS_KEY_ID = "AKIAJMYID3Q2O5XZLHAA";
+        // $AWS_SECRET_ACCESS_KEY = "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";
 
-        // Customer_reviews::insert($data);
-        // return 1;
+        // $base_url = "http://ecs.amazonaws.com/onca/xml?";
+        // $url_params = array('Operation'=>"ItemSearch",'Service'=>"AWSECommerceService",
+        //  'AWSAccessKeyId'=>$AWS_ACCESS_KEY_ID,'AssociateTag'=>"yourtag-10",
+        //  'Version'=>"2006-09-11",'Availability'=>"Available",'Condition'=>"All",
+        //  'ItemPage'=>"1",'ResponseGroup'=>"Images,ItemAttributes,EditorialReview",
+        //  'Keywords'=>"Amazon");
+
+        // // Add the Timestamp
+        // $url_params['Timestamp'] = gmdate("Y-m-d\TH:i:s.\\0\\0\\0\\Z", time());
+
+        // // Sort the URL parameters
+        // $url_parts = array();
+        // foreach(array_keys($url_params) as $key)
+        //     $url_parts[] = $key."=".$url_params[$key];
+        // sort($url_parts);
+
+        // // Construct the string to sign
+        // $string_to_sign = "GET\necs.amazonaws.com\n/onca/xml\n".implode("&",$url_parts);
+        // $string_to_sign = str_replace('+','%20',$string_to_sign);
+        // $string_to_sign = str_replace(':','%3A',$string_to_sign);
+        // $string_to_sign = str_replace(';',urlencode(';'),$string_to_sign);
+
+        // // Sign the request
+        // $signature = hash_hmac("sha256",$string_to_sign,$AWS_SECRET_ACCESS_KEY,TRUE);
+
+        // // Base64 encode the signature and make it URL safe
+        // $signature = base64_encode($signature);
+        // $signature = str_replace('+','%2B',$signature);
+        // $signature = str_replace('=','%3D',$signature);
+
+        // $url_string = implode("&",$url_parts);
+        // $url = $base_url.$url_string."&Signature=".$signature;
+        // print $url;
+
+        // $ch = curl_init();
+        // curl_setopt($ch, CURLOPT_URL,$url);
+        // curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+        // curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        // curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
+
+        // $xml_response = curl_exec($ch);
+        // echo $xml_response;die;
+        $data = array(
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+            array('shopify_domain'=>'thanh-dev.myshopify.com', 'product_review_id'=> 9,'product_id'=>4678616580233,'name'=>'Tran dang thanh','title'=>'My favorite watch','email'=>'fsddsf@gmail.com','content'=>'Estoy conforme con este reloj. Luce lindo. Evidentemente es sport. Me encanta su color arena. Además.','rate'=>4,'status'=>1),
+        );
+
+        Customer_reviews::insert($data);
+        return 1;
         // return view('frontend.config_app',compact('shop','setting'));
         return view('backend.v2.productreviews.test.test1');
         // $customer = Customer_reviews::find('206');
@@ -1350,8 +1427,7 @@ Content review: {content}
         // $string = View::make('frontend.reviews_template',compact('shop','setting'));
         // $str = str_replace('thanh-dev.myshopify.com', 'replace', $string);
         // return base64_encode((string) $str);
-        $tha = $this->add_Metafields_Product($shop,'206',$customer);
-        return $tha;
+
         // $theme = $shop->api()->rest('GET','/admin/themes.json',['fields' => 'id,role'])->body->themes;
         // foreach ($theme as  $_child) {
         //     $product_liquid = $shop->api()->rest('GET','/admin/themes/'.$_child->id.'/assets.json',['asset'=>['key'=>'templates/product.liquid']])->body->asset->value;
@@ -1361,8 +1437,75 @@ Content review: {content}
         echo '<pre>';print_r($product_liquid);
     }
     public function test_upload(Request $request){
-        
+        return $request;
     }
-    
+    public function test_vnpay(){
+        return view('backend.v2.productreviews.test.vnpay');
+    }
+    public function posttest_vnpay(Request $request){
+        error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
+/**
+ * Description of vnpay_ajax
+ *
+ * @author xonv
+ */
+        $vnp_TmnCode = "U1UY7K1S"; //Mã website tại VNPAY 
+        $vnp_HashSecret = "XWAJSDKBCHZESSTNYJWCRVCHJFSXWQSR"; //Chuỗi bí mật
+        $vnp_Url = "http://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
+        $vnp_Returnurl = "https://www.ndnapps.com/ndnapps/dev/productreviews/return-vnpay";
+        $vnp_TxnRef = $_POST['order_id']; //Mã đơn hàng. Trong thực tế Merchant cần insert đơn hàng vào DB và gửi mã này sang VNPAY
+        $vnp_OrderInfo = isset($_POST['order_desc']) ? $_POST['order_desc'] : '';
+        $vnp_OrderType = isset($_POST['order_type']) ? $_POST['order_type'] : '';
+        $vnp_Amount = $_POST['amount'] * 100;
+        $vnp_Locale = $_POST['language'];
+        $vnp_BankCode = $_POST['bank_code'];
+        $vnp_IpAddr = $_SERVER['REMOTE_ADDR'];
+
+        $inputData = array(
+            "vnp_Version" => "2.0.0",
+            "vnp_TmnCode" => $vnp_TmnCode,
+            "vnp_Amount" => $vnp_Amount,
+            "vnp_Command" => "pay",
+            "vnp_CreateDate" => date('YmdHis'),
+            "vnp_CurrCode" => "VND",
+            "vnp_IpAddr" => $vnp_IpAddr,
+            "vnp_Locale" => $vnp_Locale,
+            "vnp_OrderInfo" => $vnp_OrderInfo,
+            "vnp_OrderType" => $vnp_OrderType,
+            "vnp_ReturnUrl" => $vnp_Returnurl,
+            "vnp_TxnRef" => $vnp_TxnRef,
+        );
+
+        if (isset($vnp_BankCode) && $vnp_BankCode != "") {
+            $inputData['vnp_BankCode'] = $vnp_BankCode;
+        }
+        ksort($inputData);
+        $query = "";
+        $i = 0;
+        $hashdata = "";
+        foreach ($inputData as $key => $value) {
+            if ($i == 1) {
+                $hashdata .= '&' . $key . "=" . $value;
+            } else {
+                $hashdata .= $key . "=" . $value;
+                $i = 1;
+            }
+            $query .= urlencode($key) . "=" . urlencode($value) . '&';
+        }
+
+        $vnp_Url = $vnp_Url . "?" . $query;
+        if (isset($vnp_HashSecret)) {
+           // $vnpSecureHash = md5($vnp_HashSecret . $hashdata);
+            $vnpSecureHash = hash('sha256', $vnp_HashSecret . $hashdata);
+            $vnp_Url .= 'vnp_SecureHashType=SHA256&vnp_SecureHash=' . $vnpSecureHash;
+        }
+        $returnData = array('code' => '00'
+            , 'message' => 'success'
+            , 'data' => $vnp_Url);
+        echo json_encode($returnData);
+    }
+    public function return_vnpay(){
+        return view('backend.v2.productreviews.test.return-vnpay');
+    }
 }
 
