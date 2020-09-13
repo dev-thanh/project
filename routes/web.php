@@ -28,9 +28,9 @@ Route::group(['middleware' => 'admin','prefix' => 'admin'], function () {
     //Route::post( '/user/{data}', 'UserController@postData' );
 });
 
-// Route::get('test-queue','TestController@test_queue')->name('test-queue');
-// Route::get('image/index', 'ImageController@index');
-// Route::post('image/upload', 'ImageController@upload');
+Route::get('test-queue','TestController@test_queue')->name('test-queue');
+Route::get('image/index', 'ImageController@index');
+Route::post('image/upload', 'ImageController@upload');
 // Route::get('/mail', 'ImageController@mail');
 // Route::post('/posts', 'ImageController@store');
 // Route::get('git-test', 'ImageController@git_Test')->name('git-test');
